@@ -192,8 +192,7 @@ size_t EstimateRelativePose(const RANSACOptions& ransac_options,
   Eigen::Matrix3d R;
 
   std::vector<Eigen::Vector3d> points3D;
-  PoseFromEssentialMatrix(report.model, inliers1, inliers2, &R, tvec,
-                          &points3D);
+  PoseFromEssentialMatrix(report.model, inliers1, inliers2, &R, tvec, &points3D, 0);
 
   *qvec = RotationMatrixToQuaternion(R);
 

@@ -223,6 +223,7 @@ Eigen::Vector3d CalculateBaseline(const Eigen::Vector4d& qvec1,
   return center2 - center1;
 }
 
+// CheckCheirality(R_cmbs[i], t_cmbs[i], points1, points2, &points3D_cmb);
 bool CheckCheirality(const Eigen::Matrix3d& R, const Eigen::Vector3d& t,
                      const std::vector<Eigen::Vector2d>& points1,
                      const std::vector<Eigen::Vector2d>& points2,

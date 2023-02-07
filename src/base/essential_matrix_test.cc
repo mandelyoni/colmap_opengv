@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(TestPoseFromEssentialMatrix) {
 
   Eigen::Matrix3d RR;
   Eigen::Vector3d tt;
-  PoseFromEssentialMatrix(E, points1, points2, &RR, &tt, &points3D);
+  PoseFromEssentialMatrix(E, points1, points2, &RR, &tt, &points3D, 0);
 
   BOOST_CHECK_EQUAL(points3D.size(), 4);
 

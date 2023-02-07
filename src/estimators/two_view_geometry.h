@@ -38,6 +38,12 @@
 #include "util/alignment.h"
 #include "util/logging.h"
 
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/relative_pose/CentralRelativeAdapter.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac/Ransac.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/triangulation/methods.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac_problems/relative_pose/CentralRelativePoseSacProblem.hpp"
+
+
 //#include <unsupported/Eigen/NonLinearOptimization>
 
 namespace colmap {
@@ -194,7 +200,8 @@ struct TwoViewGeometry
   bool EstimateRelativePose(const Camera& camera1,
                             const std::vector<Eigen::Vector2d>& points1,
                             const Camera& camera2,
-                            const std::vector<Eigen::Vector2d>& points2, const bool use_opengv_flag);
+                            const std::vector<Eigen::Vector2d>& points2, const bool use_opengv_flag,
+                            opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem>& ransac);
 
   // Estimate two-view geometry from calibrated image pair.
   //
@@ -209,7 +216,8 @@ struct TwoViewGeometry
                           const Camera& camera2,
                           const std::vector<Eigen::Vector2d>& points2,
                           const FeatureMatches& matches,
-                          const Options& options);
+                          const Options& options,
+                          opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem>& ransac);
 
   // Estimate two-view geometry from uncalibrated image pair.
   //

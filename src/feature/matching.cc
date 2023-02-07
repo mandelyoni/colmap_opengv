@@ -928,9 +928,9 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
   std::cout << "Exhaustive feature matching - Yoni" << std::endl;
-  //Database database("/home/yoni1/Downloads/Buildots/shortvid/UNO_1920_temp/yy.db");//Yoni
-  //database.ClearTwoViewGeometries();//Yoni
-  //database.ClearMatches();//Yoni
+  Database database("/home/yoni1/Downloads/Buildots/shortvid/UNO_1920_temp/yy.db");//Yoni
+  database.ClearTwoViewGeometries();//Yoni
+  database.ClearMatches();//Yoni
 
   if (!matcher_.Setup()) {
     return;

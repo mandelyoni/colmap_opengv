@@ -65,7 +65,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
                              Eigen::Matrix3d* R, Eigen::Vector3d* t,
-                             std::vector<Eigen::Vector3d>* points3D) 
+                             std::vector<Eigen::Vector3d>* points3D, const bool use_opengv_flag) 
 {
   CHECK_EQ(points1.size(), points2.size());
 
@@ -196,7 +196,7 @@ bool RefineEssentialMatrix(const ceres::Solver::Options& options,
   Eigen::Vector3d tvec;
   std::vector<Eigen::Vector3d> points3D;
   PoseFromEssentialMatrix(*E, inlier_points1, inlier_points2, &R, &tvec,
-                          &points3D);
+                          &points3D, 0);
 
   Eigen::Vector4d qvec = RotationMatrixToQuaternion(R);
 

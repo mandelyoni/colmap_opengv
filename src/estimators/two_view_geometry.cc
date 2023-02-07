@@ -47,12 +47,7 @@
 #include "optim/ransac.h"
 #include "util/random.h"
 
-//#include <opengv/relative_pose/methods.hpp>
-#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/relative_pose/CentralRelativeAdapter.hpp"
-#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac/Ransac.hpp"
-#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/triangulation/methods.hpp"
-//#include <opengv/sac/Lmeds.hpp>
-#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac_problems/relative_pose/CentralRelativePoseSacProblem.hpp"
+
 
 namespace colmap {
 namespace {
@@ -129,13 +124,15 @@ void TwoViewGeometry::Estimate(const Camera& camera1,
                                const FeatureMatches& matches,
                                const Options& options) 
 {
+  opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
   if (options.force_H_use) 
   {
     EstimateHomography(camera1, points1, camera2, points2, matches, options);
   } 
   else if (camera1.HasPriorFocalLength() && camera2.HasPriorFocalLength()) 
   {
-    EstimateCalibrated(camera1, points1, camera2, points2, matches, options);
+    EstimateCalibrated(camera1, points1, camera2, points2, matches, options, ransac); // Yoni
+    std::cerr << "TwoViewGeometry::Estimate" << std::endl;
   } 
   else 
   {
@@ -189,7 +186,8 @@ void TwoViewGeometry::EstimateMultiple(
 
 bool TwoViewGeometry::EstimateRelativePose(
     const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
-    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2, const bool use_opengv_flag) 
+    const Camera& camera2, const std::vector<Eigen::Vector2d>& points2, const bool use_opengv_flag,
+    opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem>& ransac) 
 {
   std::cerr << "EstimateRelativePose Entry" << std::endl;
   // We need a valid epipolar geometry to estimate the relative pose.
@@ -215,12 +213,11 @@ bool TwoViewGeometry::EstimateRelativePose(
   for (const auto& match : inlier_matches) 
   {
     const point2D_t idx1 = match.point2D_idx1;
-    const point2D_t idx2 = match.point2D_idx2;
+    const point2D_t idx2 = match.point2D_idx2;   
 
-    if (use_opengv_flag) //Yoni 
+    if (use_opengv_flag) //Yoni
     {
-      p_u = camera1.ImageToWorld(points1[idx1]);   // normalized plane coordinates 
-      //std::cerr << "use_opengv_flag in EstimateRelativePose" << std::endl;
+      p_u = camera1.ImageToWorld(points1[idx1]);
       theta = atan2(p_u.norm(), 1);
       if (theta < 1e-10)
       {
@@ -233,13 +230,8 @@ bool TwoViewGeometry::EstimateRelativePose(
       P1[0] = sin(theta) * cos(phi);
       P1[1] = sin(theta) * sin(phi);
       P1[2] = cos(theta);
-      //std::cerr << "P1 = " << P1 << std::endl;
       bearingVectors1.push_back(P1);
       bearingVectors1[ii] = bearingVectors1[ii] / bearingVectors1[ii].norm(); // sphere coordinates
-      Eigen::Vector2d P1_xy;
-      P1_xy[0] = P1[0];
-      P1_xy[1] = P1[1];
-      inlier_points1_normalized.push_back(P1_xy); //.push_back(P1_xy); 
       
       p_u = camera2.ImageToWorld(points2[idx2]);      
       theta = atan2(p_u.norm(), 1);
@@ -253,22 +245,18 @@ bool TwoViewGeometry::EstimateRelativePose(
       }
       P2[0] = sin(theta) * cos(phi);  //x
       P2[1] = sin(theta) * sin(phi);  //y
-      P2[2] = cos(theta);             //z 
+      P2[2] = cos(theta);             //z
       bearingVectors2.push_back(P2);
-      bearingVectors2[ii] = bearingVectors2[ii] / bearingVectors2[ii].norm(); // sphere coordinates 
-      Eigen::Vector2d P2_xy;
-      P2_xy[0] = P2[0];
-      P2_xy[1] = P2[1];
-      inlier_points2_normalized.push_back(P2_xy);   
-      ii++;       
+      bearingVectors2[ii] = bearingVectors2[ii] / bearingVectors2[ii].norm(); // sphere coordinates
+      ii++;
     }
     else
     {
       inlier_points1_normalized.push_back(camera1.ImageToWorld(points1[idx1]));
       inlier_points2_normalized.push_back(camera2.ImageToWorld(points2[idx2]));
-    }
+    }      
   }
-
+  
   Eigen::Matrix3d R;
   std::vector<Eigen::Vector3d> points3D;
 
@@ -278,74 +266,42 @@ bool TwoViewGeometry::EstimateRelativePose(
     // configurations. In the uncalibrated case, this most likely leads to a
     // ill-defined reconstruction, but sometimes it succeeds anyways after e.g.
     // subsequent bundle-adjustment etc.
+    
     if (use_opengv_flag)
     {
-      std::cerr << "  EstimateRelativePose use_openGV = 1" << std::endl;
-
-      opengv::relative_pose::CentralRelativeAdapter adapter(bearingVectors1, bearingVectors2);
-      opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
-      std::shared_ptr<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> relposeproblem_ptr(new opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem(adapter, opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem::EIGHTPT ) );
-      // run ransac
-      ransac.sac_model_ = relposeproblem_ptr;
-      ransac.threshold_ = 2.0*(1.0 - cos(atan(sqrt(2.0)*0.5/800.0)));
-      ransac.max_iterations_ = 100000;//
-      //ransac.probability_ = 
-      ransac.computeModel();
-
-      
-    std::cout << "Ransac needed " << ransac.iterations_ << " iterations and ";
-    std::cout << "the number of inliers is: " << ransac.inliers_.size();
-    std::cout << std::endl << std::endl;
-    // std::cout << "the found inliers are: " << std::endl;
-    // for(size_t i = 0; i < ransac.inliers_.size(); i++)
-    //   std::cout << ransac.inliers_[i] << " ";
-    // std::cout << std::endl << std::endl;
-
-
+      std::cerr << "  EstimateRelativePose use_openGV = 1 " << std::endl;
       Eigen::Matrix3x4d proj_mat = ransac.model_coefficients_;
       
       R = proj_mat.leftCols(3);
       tvec = proj_mat.col(3);
       int iterations = 100;
 
-      // opengv::translation_t position = tvec; 
-      // opengv::rotation_t rotation = R;
-      // opengv::relative_pose::CentralRelativeAdapter adapter(
-      //   bearingVectors1,
-      //   bearingVectors2,
-      //   position,
-      //   rotation);
-
-      std::cout << "!!!the opengv R results is: " << std::endl;
-      std::cout << R << std::endl;
-      std::cout << "!!!the normalized opengv translation is: " << std::endl;
-      //std::cout << proj_mat.col(3)/proj_mat.col(3).norm() << std::endl;
-      std::cout << tvec/tvec.norm() << std::endl;
-
+      opengv::translation_t position = tvec; 
+      opengv::rotation_t rotation = R;
+      opengv::relative_pose::CentralRelativeAdapter adapter(
+        bearingVectors1,
+        bearingVectors2,
+        position,
+        rotation);      
+      
       std::cout << "running opengv triangulation algorithm 1" << std::endl;
-      Eigen::MatrixXd triangulate_results(3, ii);
-      for(unsigned long j = 0; j < ii; j++)
+      //Eigen::MatrixXd triangulate_results(3, inlier_matches.size()); 
+      for(unsigned long j = 0; j < inlier_matches.size(); j++)
       {
-        //gettimeofday( &tic, 0 );
         for(int i = 0; i < iterations; i++)
         {
-          triangulate_results.block<3,1>(0,j) = opengv::triangulation::triangulate(adapter,j);
+          //triangulate_results.block<3,1>(0,j) = opengv::triangulation::triangulate(adapter,j);
+          points3D.push_back(opengv::triangulation::triangulate(adapter,j));
           //std::cout << "triangulate_results.block " << j << " = " << triangulate_results.block<3,1>(0,j) << std::endl;  
         }
-        // gettimeofday( &toc, 0 );
-        // triangulate_time = TIMETODOUBLE(timeval_minus(toc,tic)) / iterations;
       }
-      std::cout << "triangulate_results = "  << std::endl; 
-      std::cout <<  triangulate_results << std::endl; 
-      for (unsigned long j=0; j < ii;  j++)   
-      {
-        points3D.push_back(triangulate_results.block<3,1>(0,j));
-      }
+      std::cout << "points3D_opengv = "  << std::endl; 
+      //std::cout <<  points3D << std::endl;
     }
     else
     {
       std::cerr << "  EstimateRelativePose use_openGV = 0 " << std::endl;
-      PoseFromEssentialMatrix(E, inlier_points1_normalized, inlier_points2_normalized, &R, &tvec, &points3D);
+      PoseFromEssentialMatrix(E, inlier_points1_normalized, inlier_points2_normalized, &R, &tvec, &points3D, use_opengv_flag);
       std::cout << "!!!the colmap R result is: " << std::endl;
       std::cout << R << std::endl;
       std::cout << "!!!the normalized translation is: " << std::endl;
@@ -356,11 +312,10 @@ bool TwoViewGeometry::EstimateRelativePose(
   else if (config == PLANAR || config == PANORAMIC || config == PLANAR_OR_PANORAMIC) 
   {
     Eigen::Vector3d n;
-    std::cerr << "WHYYYYYYYYYYYY????????????" << std::endl;
+    std::cerr << "PoseFromHomographyMatrix ???????" << std::endl;
     PoseFromHomographyMatrix(
         H, camera1.CalibrationMatrix(), camera2.CalibrationMatrix(),
-        inlier_points1_normalized, inlier_points2_normalized, &R, &tvec, &n,
-        &points3D);
+        inlier_points1_normalized, inlier_points2_normalized, &R, &tvec, &n, &points3D);
   } 
   else 
   {
@@ -377,8 +332,10 @@ bool TwoViewGeometry::EstimateRelativePose(
   } 
   else 
   {
-    tri_angle = Median(CalculateTriangulationAngles(
-        Eigen::Vector3d::Zero(), -R.transpose() * tvec, points3D));
+    if (use_opengv_flag)
+      tri_angle = Median(CalculateTriangulationAngles(Eigen::Vector3d::Zero(), tvec, points3D));
+    else
+      tri_angle = Median(CalculateTriangulationAngles(Eigen::Vector3d::Zero(), -R.transpose() * tvec, points3D));
     std::cerr << "This is the median: " << tri_angle  << std::endl;
   }
 
@@ -402,8 +359,9 @@ bool TwoViewGeometry::EstimateRelativePose(
 void TwoViewGeometry::EstimateCalibrated(
     const Camera& camera1, const std::vector<Eigen::Vector2d>& points1,
     const Camera& camera2, const std::vector<Eigen::Vector2d>& points2,
-    const FeatureMatches& matches, const Options& options) 
-{
+    const FeatureMatches& matches, const Options& options,
+    opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem>& ransac) 
+{  // Yoni - matches is with outliers
   options.Check();
 
   if (matches.size() < options.min_num_inliers) 
@@ -439,8 +397,7 @@ void TwoViewGeometry::EstimateCalibrated(
 
     if (options.use_opengv) //Yoni
     {
-      p_u = camera1.ImageToWorld(points1[idx1]);   // normalized plane coordinates 
-      //std::cerr << "p_u = " << p_u << std::endl;
+      p_u = camera1.ImageToWorld(points1[idx1]);   
       theta = atan2(p_u.norm(), 1);
       if (theta < 1e-10)
       {
@@ -453,7 +410,6 @@ void TwoViewGeometry::EstimateCalibrated(
       P1[0] = sin(theta) * cos(phi);
       P1[1] = sin(theta) * sin(phi);
       P1[2] = cos(theta);
-      //std::cerr << "P1 = " << P1 << std::endl;
       bearingVectors1.push_back(P1);
       bearingVectors1[i] = bearingVectors1[i] / bearingVectors1[i].norm(); // sphere coordinates
       Eigen::Vector2d P1_xy;
@@ -502,10 +458,10 @@ void TwoViewGeometry::EstimateCalibrated(
     // create the central relative adapter
     opengv::relative_pose::CentralRelativeAdapter adapter(bearingVectors1, bearingVectors2);
     // create a RANSAC object
-    opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
+    //opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
     // create a CentralRelativePoseSacProblem
     // (set algorithm to STEWENIUS, NISTER, SEVENPT, or EIGHTPT)
-    std::shared_ptr<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> relposeproblem_ptr(new opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem(adapter, opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem::STEWENIUS ) );
+    std::shared_ptr<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> relposeproblem_ptr(new opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem(adapter, opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem::EIGHTPT ) );
     // run ransac
     ransac.sac_model_ = relposeproblem_ptr;
     ransac.threshold_ = 2.0*(1.0 - cos(atan(sqrt(2.0)*0.5/800.0))) * options.ransac_options.max_error;

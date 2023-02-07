@@ -316,10 +316,12 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
 
   image1.Qvec() = ComposeIdentityQuaternion();
   image1.Tvec() = Eigen::Vector3d(0, 0, 0);
-  image2.Qvec() = prev_init_two_view_geometry_.qvec; // Yoni123
+  image2.Qvec() = InvertQuaternion(prev_init_two_view_geometry_.qvec); // Yoni123
   Eigen::Matrix3d rot_mat = QuaternionToRotationMatrix(NormalizeQuaternion(prev_init_two_view_geometry_.qvec));
+  Eigen::Vector3d t_vec = prev_init_two_view_geometry_.tvec;
   std::cout << "initial rot_matrix = " << rot_mat << std::endl;
-  image2.Tvec() = prev_init_two_view_geometry_.tvec;
+  image2.Tvec() = -rot_mat.inverse()*t_vec;
+  std::cout << "initial tvec = " << prev_init_two_view_geometry_.tvec << std::endl;
 
   const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix(); 
   const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
@@ -348,33 +350,33 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   track.Element(0).image_id = image_id1;
   track.Element(1).image_id = image_id2;
   int i=0;
+
   for (const auto& corr : corrs) 
   {
     const Eigen::Vector2d point1_N = camera1.ImageToWorld(image1.Point2D(corr.point2D_idx1).XY());
     const Eigen::Vector2d point2_N = camera2.ImageToWorld(image2.Point2D(corr.point2D_idx2).XY());
+
     const Eigen::Vector3d& xyz = TriangulatePoint(proj_matrix1, proj_matrix2, point1_N, point2_N);
     const double tri_angle = CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
-    if (tri_angle >= min_tri_angle_rad &&
-        HasPointPositiveDepth(proj_matrix1, xyz) && HasPointPositiveDepth(proj_matrix2, xyz)) 
+    if (tri_angle >= min_tri_angle_rad && HasPointPositiveDepth(proj_matrix1, xyz) && HasPointPositiveDepth(proj_matrix2, xyz)) 
     {
+      //std::cout << "HasPointPositiveDepth "  << std::endl;
       track.Element(0).point2D_idx = corr.point2D_idx1;
       track.Element(1).point2D_idx = corr.point2D_idx2;
       reconstruction_->AddPoint3D(xyz, track);
       ++i;
-    }
-    
-    
+    }    
   }
+
   corrs.size();
-  std::cerr << "Number of potential 3D points =  "  << corrs.size()<< std::endl;
+  std::cerr << "Number of potential 3D points =  "  << corrs.size() << std::endl;
   std::cerr << "Number of 3D points added =  "  << i << std::endl;
 
   return true;
 }
 
-bool IncrementalMapper::RegisterNextImage(const Options& options,
-                                          const image_t image_id) 
-{//Yoni
+bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t image_id) 
+{
   CHECK_NOTNULL(reconstruction_);
   CHECK_GE(reconstruction_->NumRegImages(), 2);
 
@@ -1230,10 +1232,23 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
   two_view_geometry_options.use_opengv = options.use_opengv;
   bool use_opengv_flag = options.use_opengv; // Yoni
-  two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2, matches, two_view_geometry_options);
+  opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
+
+  two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2, matches, two_view_geometry_options, ransac);
+  
+  if (use_opengv_flag)
+  {
+    std::cout << "!!!the openGV R result is: " << std::endl;
+    std::cout << ransac.model_coefficients_ <<  std::endl;
+    std::cout << "the normalized translation is: " << std::endl;
+    std::cout << ransac.model_coefficients_.col(3)/ransac.model_coefficients_.col(3).norm() <<  std::endl;
+    //two_view_geometry.
+  }
+  
+    
   std::cerr << "test11"  << std::endl;
 
-  if (!two_view_geometry.EstimateRelativePose(camera1, points1, camera2, points2, use_opengv_flag)) //Yoni99
+  if (!two_view_geometry.EstimateRelativePose(camera1, points1, camera2, points2, use_opengv_flag, ransac)) //Yoni99
   {
     std::cerr << "test22" << std::endl;
     return false;

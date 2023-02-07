@@ -73,7 +73,7 @@ void PoseFromEssentialMatrix(const Eigen::Matrix3d& E,
                              const std::vector<Eigen::Vector2d>& points1,
                              const std::vector<Eigen::Vector2d>& points2,
                              Eigen::Matrix3d* R, Eigen::Vector3d* t,
-                             std::vector<Eigen::Vector3d>* points3D);
+                             std::vector<Eigen::Vector3d>* points3D, const bool use_opengv_flag);
 
 // Compose essential matrix from relative camera poses.
 //
