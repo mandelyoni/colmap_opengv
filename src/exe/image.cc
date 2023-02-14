@@ -241,6 +241,8 @@ int RunImageRegistrator(int argc, char** argv)
   std::string input_path;
   std::string output_path;
 
+  std::cerr << "RunImageRegistratorrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr" << std::endl;
+
   OptionManager options;
   options.AddDatabaseOptions();
   options.AddRequiredOption("input_path", &input_path);
@@ -294,8 +296,7 @@ int RunImageRegistrator(int argc, char** argv)
                   std::to_string(reconstruction.NumRegImages() + 1) + ")");
 
     std::cout << "  => Image sees " << image.second.NumVisiblePoints3D()
-              << " / " << image.second.NumObservations() << " points"
-              << std::endl;
+              << " / " << image.second.NumObservations() << " points"  << std::endl;
 
     mapper.RegisterNextImage(mapper_options, image.first);
   }

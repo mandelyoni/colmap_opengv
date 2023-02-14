@@ -47,7 +47,8 @@ class BundleAdjustmentCostFunction {
   explicit BundleAdjustmentCostFunction(const Eigen::Vector2d& point2D)
       : observed_x_(point2D(0)), observed_y_(point2D(1)) {}
 
-  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) {
+  static ceres::CostFunction* Create(const Eigen::Vector2d& point2D) 
+  {
     return (new ceres::AutoDiffCostFunction<
             BundleAdjustmentCostFunction<CameraModel>, 2, 4, 3, 3,
             CameraModel::kNumParams>(

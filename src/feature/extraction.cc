@@ -96,7 +96,7 @@ SiftFeatureExtractor::SiftFeatureExtractor(
     camera_mask = std::make_shared<Bitmap>();
     if (!camera_mask->Read(reader_options_.camera_mask_path,
                            /*as_rgb*/ false)) {
-      std::cerr << "  ERROR Yoni: Cannot read camera mask file: "
+      std::cerr << "  ERROR: Cannot read camera mask file: "
                 << reader_options_.camera_mask_path
                 << ". No mask is going to be used." << std::endl;
       camera_mask.reset();

@@ -46,6 +46,13 @@
 #include "util/threading.h"
 #include "util/types.h"
 
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/AbsoluteAdapterBase.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/CentralAbsoluteAdapter.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/methods.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/NoncentralAbsoluteAdapter.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac/Ransac.hpp"
+#include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac_problems/absolute_pose/AbsolutePoseSacProblem.hpp"
+
 namespace colmap {
 
 struct AbsolutePoseEstimationOptions {
@@ -127,7 +134,8 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector3d>& points3D,
                           Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                           Camera* camera, size_t* num_inliers,
-                          std::vector<char>* inlier_mask);
+                          std::vector<char>* inlier_mask,
+                          bool use_opengv);
 
 // Estimate relative from 2D-2D correspondences.
 //

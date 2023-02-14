@@ -637,7 +637,8 @@ bool ParallelBundleAdjuster::Solve(Reconstruction* reconstruction) {
   return true;
 }
 
-const ceres::Solver::Summary& ParallelBundleAdjuster::Summary() const {
+const ceres::Solver::Summary& ParallelBundleAdjuster::Summary() const 
+{
   return summary_;
 }
 

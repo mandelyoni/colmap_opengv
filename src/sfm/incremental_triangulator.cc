@@ -58,8 +58,8 @@ IncrementalTriangulator::IncrementalTriangulator(
     : correspondence_graph_(correspondence_graph),
       reconstruction_(reconstruction) {}
 
-size_t IncrementalTriangulator::TriangulateImage(const Options& options,
-                                                 const image_t image_id) {
+size_t IncrementalTriangulator::TriangulateImage(const Options& options,const image_t image_id) 
+{
   CHECK(options.Check());
 
   size_t num_tris = 0;
@@ -67,7 +67,8 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   ClearCaches();
 
   const Image& image = reconstruction_->Image(image_id);
-  if (!image.IsRegistered()) {
+  if (!image.IsRegistered()) 
+  {
     return num_tris;
   }
 
@@ -88,11 +89,10 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
   std::vector<CorrData> corrs_data;
 
   // Try to triangulate all image observations.
-  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D();
-       ++point2D_idx) {
+  for (point2D_t point2D_idx = 0; point2D_idx < image.NumPoints2D(); ++point2D_idx) 
+  {
     const size_t num_triangulated =
-        Find(options, image_id, point2D_idx,
-             static_cast<size_t>(options.max_transitivity), &corrs_data);
+        Find(options, image_id, point2D_idx, static_cast<size_t>(options.max_transitivity), &corrs_data);
     if (corrs_data.empty()) {
       continue;
     }
@@ -101,10 +101,13 @@ size_t IncrementalTriangulator::TriangulateImage(const Options& options,
     ref_corr_data.point2D_idx = point2D_idx;
     ref_corr_data.point2D = &point2D;
 
-    if (num_triangulated == 0) {
+    if (num_triangulated == 0) 
+    {
       corrs_data.push_back(ref_corr_data);
       num_tris += Create(options, corrs_data);
-    } else {
+    } 
+    else 
+    {
       // Continue correspondences to existing 3D points.
       num_tris += Continue(options, ref_corr_data, corrs_data);
       // Create points from correspondences that are not continued.

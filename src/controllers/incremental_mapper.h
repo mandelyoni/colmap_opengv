@@ -38,7 +38,8 @@
 
 namespace colmap {
 
-struct IncrementalMapperOptions {
+struct IncrementalMapperOptions 
+{
  public:
   // The minimum number of matches for inlier matches to be considered.
   int min_num_matches = 15;

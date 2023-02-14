@@ -623,7 +623,7 @@ TwoViewGeometryVerifier::TwoViewGeometryVerifier(
   two_view_geometry_options_.ransac_options.min_inlier_ratio =
       options_.min_inlier_ratio;
   two_view_geometry_options_.use_opengv =
-      options_.use_opengv; // Yoni
+      options_.use_opengv; 
 }
 
 void TwoViewGeometryVerifier::Run() 
@@ -904,7 +904,7 @@ void SiftFeatureMatcher::Match( const std::vector<std::pair<image_t, image_t>>& 
     }
 
     cache_->WriteMatches(output.image_id1, output.image_id2, output.matches);
-     std::cerr << "image_id1 - " <<  output.image_id1 << ",  image_id2 - " <<  output.image_id2 << std::endl; // Yoni
+     //std::cerr << "image_id1 - " <<  output.image_id1 << ",  image_id2 - " <<  output.image_id2 << std::endl; // Yoni
     cache_->WriteTwoViewGeometry(output.image_id1, output.image_id2,
                                  output.two_view_geometry);
   }
@@ -928,9 +928,9 @@ ExhaustiveFeatureMatcher::ExhaustiveFeatureMatcher(
 void ExhaustiveFeatureMatcher::Run() {
   PrintHeading1("Exhaustive feature matching");
   std::cout << "Exhaustive feature matching - Yoni" << std::endl;
-  Database database("/home/yoni1/Downloads/Buildots/shortvid/UNO_1920_temp/yy.db");//Yoni
-  database.ClearTwoViewGeometries();//Yoni
-  database.ClearMatches();//Yoni
+  // Database database("/home/yoni1/Downloads/Buildots/shortvid/UNO_1920_temp/yy.db");//Yoni
+  // database.ClearTwoViewGeometries();
+  // database.ClearMatches();
 
   if (!matcher_.Setup()) {
     return;

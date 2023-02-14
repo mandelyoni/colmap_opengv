@@ -43,6 +43,13 @@
 #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/triangulation/methods.hpp"
 #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac_problems/relative_pose/CentralRelativePoseSacProblem.hpp"
 
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/AbsoluteAdapterBase.hpp"
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/CentralAbsoluteAdapter.hpp"
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/methods.hpp"
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/absolute_pose/NoncentralAbsoluteAdapter.hpp"
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac/Ransac.hpp"
+// #include "/home/yoni1/Documents/colmap/src/opengv/include/opengv/sac_problems/absolute_pose/AbsolutePoseSacProblem.hpp"
+
 
 //#include <unsupported/Eigen/NonLinearOptimization>
 

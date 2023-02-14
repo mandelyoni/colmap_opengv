@@ -215,7 +215,7 @@ bool TwoViewGeometry::EstimateRelativePose(
     const point2D_t idx1 = match.point2D_idx1;
     const point2D_t idx2 = match.point2D_idx2;   
 
-    if (use_opengv_flag) //Yoni
+    if (use_opengv_flag) 
     {
       p_u = camera1.ImageToWorld(points1[idx1]);
       theta = atan2(p_u.norm(), 1);
@@ -395,7 +395,7 @@ void TwoViewGeometry::EstimateCalibrated(
     matched_points1[i] = points1[idx1];
     matched_points2[i] = points2[idx2];
 
-    if (options.use_opengv) //Yoni
+    if (options.use_opengv) 
     {
       p_u = camera1.ImageToWorld(points1[idx1]);   
       theta = atan2(p_u.norm(), 1);
@@ -464,7 +464,7 @@ void TwoViewGeometry::EstimateCalibrated(
     std::shared_ptr<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> relposeproblem_ptr(new opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem(adapter, opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem::EIGHTPT ) );
     // run ransac
     ransac.sac_model_ = relposeproblem_ptr;
-    ransac.threshold_ = 2.0*(1.0 - cos(atan(sqrt(2.0)*0.5/800.0))) * options.ransac_options.max_error;
+    ransac.threshold_ = 2.0*(1.0 - cos(atan(sqrt(2.0)*0.5/800.0))) * options.ransac_options.max_error; // Yoni
     ransac.max_iterations_ = 1000000;
     ransac.computeModel();
 

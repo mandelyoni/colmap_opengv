@@ -215,7 +215,7 @@ public:
    *  problem. These are not the indices for generating a hypothesis, but
    *  all indices for model verification
    */
-  std::shared_ptr< std::vector<int> > indices_; // Yoni
+  std::shared_ptr< std::vector<int> > indices_; 
 
   /** A shuffled version of the indices used for random sample drawing */
   std::vector<int> shuffled_indices_;

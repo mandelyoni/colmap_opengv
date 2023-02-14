@@ -16,6 +16,34 @@ COLMAP_ADD_SOURCES(
   src/relative_pose/modules/sixpt/modules2.cpp
   src/relative_pose/modules/eigensolver/modules.cpp
   src/relative_pose/modules/ge/modules.cpp
+  src/absolute_pose/modules/main.cpp
+  src/absolute_pose/modules/Epnp.cpp
+  src/absolute_pose/modules/upnp2.cpp
+  src/absolute_pose/modules/upnp4.cpp
+  src/absolute_pose/modules/gpnp1/code.cpp
+  src/absolute_pose/modules/gpnp1/init.cpp
+  src/absolute_pose/modules/gpnp1/reductors.cpp
+  src/absolute_pose/modules/gpnp1/spolynomials.cpp  
+  src/absolute_pose/modules/gpnp2/code.cpp
+  src/absolute_pose/modules/gpnp2/init.cpp
+  src/absolute_pose/modules/gpnp2/reductors.cpp
+  src/absolute_pose/modules/gpnp2/spolynomials.cpp  
+  src/absolute_pose/modules/gpnp3/code.cpp
+  src/absolute_pose/modules/gpnp3/init.cpp
+  src/absolute_pose/modules/gpnp3/reductors.cpp
+  src/absolute_pose/modules/gpnp3/spolynomials.cpp  
+  src/absolute_pose/modules/gpnp4/code.cpp
+  src/absolute_pose/modules/gpnp4/init.cpp
+  src/absolute_pose/modules/gpnp4/reductors.cpp
+  src/absolute_pose/modules/gpnp4/spolynomials.cpp
+  src/absolute_pose/modules/gpnp5/code.cpp
+  src/absolute_pose/modules/gpnp5/init.cpp
+  src/absolute_pose/modules/gpnp5/reductors.cpp
+  src/absolute_pose/modules/gpnp5/spolynomials.cpp  
+  src/absolute_pose/modules/gp3p/code.cpp
+  src/absolute_pose/modules/gp3p/init.cpp
+  src/absolute_pose/modules/gp3p/reductors.cpp
+  src/absolute_pose/modules/gp3p/spolynomials.cpp
   src/math/cayley.cpp
   src/math/quaternion.cpp
   src/math/arun.cpp
@@ -32,9 +60,13 @@ COLMAP_ADD_SOURCES(
   src/sac_problems/relative_pose/CentralRelativePoseSacProblem.cpp
   src/sac_problems/relative_pose/NoncentralRelativePoseSacProblem.cpp
   src/sac_problems/relative_pose/EigensolverSacProblem.cpp
+  src/sac_problems/absolute_pose/AbsolutePoseSacProblem.cpp
   src/relative_pose/MACentralRelative.cpp
   src/relative_pose/MANoncentralRelative.cpp
   src/relative_pose/MANoncentralRelativeMulti.cpp
+  src/absolute_pose/CentralAbsoluteAdapter.cpp
+  src/absolute_pose/NoncentralAbsoluteAdapter.cpp
+  src/absolute_pose/methods.cpp
   include/opengv/types.hpp
   include/opengv/OptimizationFunctor.hpp
   include/opengv/relative_pose/methods.hpp
@@ -55,6 +87,11 @@ COLMAP_ADD_SOURCES(
   include/opengv/sac_problems/relative_pose/CentralRelativePoseSacProblem.hpp
   include/opengv/sac_problems/relative_pose/NoncentralRelativePoseSacProblem.hpp
   include/opengv/sac_problems/relative_pose/EigensolverSacProblem.hpp
+  include/opengv/sac_problems/absolute_pose/AbsolutePoseSacProblem.hpp
   include/opengv/relative_pose/MACentralRelative.hpp
   include/opengv/relative_pose/MANoncentralRelative.hpp
-  include/opengv/relative_pose/MANoncentralRelativeMulti.hpp )
+  include/opengv/relative_pose/MANoncentralRelativeMulti.hpp
+  include/opengv/absolute_pose/AbsoluteAdapterBase.hpp
+  include/opengv/absolute_pose/CentralAbsoluteAdapter.hpp
+  include/opengv/absolute_pose/methods.hpp
+  include/opengv/absolute_pose/NoncentralAbsoluteAdapter.hpp )

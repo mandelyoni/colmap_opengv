@@ -37,9 +37,7 @@
 
 bool
 opengv::sac_problems::
-    relative_pose::CentralRelativePoseSacProblem::computeModelCoefficients( // Yoni
-    const std::vector<int> &indices,
-    model_t & outModel) const
+    relative_pose::CentralRelativePoseSacProblem::computeModelCoefficients( const std::vector<int> &indices, model_t & outModel) const
 {
   essentials_t essentialMatrices;
   //fprintf( stderr,

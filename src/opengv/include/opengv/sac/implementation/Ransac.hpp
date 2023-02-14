@@ -42,8 +42,7 @@ opengv::sac::Ransac<P>::~Ransac(){}
 
 template<typename PROBLEM_T>
 bool
-opengv::sac::Ransac<PROBLEM_T>::computeModel( // Yoni
-    int debug_verbosity_level)
+opengv::sac::Ransac<PROBLEM_T>::computeModel( int debug_verbosity_level)
 {
   typedef PROBLEM_T problem_t;
   typedef typename problem_t::model_t model_t;
@@ -62,7 +61,7 @@ opengv::sac::Ransac<PROBLEM_T>::computeModel( // Yoni
   const unsigned max_skip = max_iterations_ * 10;
 
   // Iterate
-  while( iterations_ < k && skipped_count < max_skip )
+  while( iterations_ < k  &&  skipped_count < max_skip )
   {
     // Get X samples which satisfy the model criteria
     sac_model_->getSamples( iterations_, selection );
@@ -87,8 +86,7 @@ opengv::sac::Ransac<PROBLEM_T>::computeModel( // Yoni
     //if(inliers.empty() && k > 1.0)
     //  continue;
 
-    n_inliers_count = sac_model_->countWithinDistance(
-        model_coefficients, threshold_ );
+    n_inliers_count = sac_model_->countWithinDistance( model_coefficients, threshold_ );
 
     // Better match ?
     if(n_inliers_count > n_best_inliers_count)
@@ -100,14 +98,11 @@ opengv::sac::Ransac<PROBLEM_T>::computeModel( // Yoni
       model_coefficients_ = model_coefficients;
 
       // Compute the k parameter (k=log(z)/log(1-w^n))
-      double w = static_cast<double> (n_best_inliers_count) /
-          static_cast<double> (sac_model_->getIndices()->size());
+      double w = static_cast<double> (n_best_inliers_count) / static_cast<double> (sac_model_->getIndices()->size());
       double p_no_outliers = 1.0 - pow(w, static_cast<double> (selection.size()));
-      p_no_outliers =
-          (std::max) (std::numeric_limits<double>::epsilon(), p_no_outliers);
+      p_no_outliers = (std::max) (std::numeric_limits<double>::epsilon(), p_no_outliers);
           // Avoid division by -Inf
-      p_no_outliers =
-          (std::min) (1.0 - std::numeric_limits<double>::epsilon(), p_no_outliers);
+      p_no_outliers = (std::min) (1.0 - std::numeric_limits<double>::epsilon(), p_no_outliers);
           // Avoid division by 0.
       k = log(1.0 - probability_) / log(p_no_outliers);
     }

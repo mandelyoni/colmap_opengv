@@ -36,26 +36,24 @@
 namespace colmap {
 namespace {
 
-size_t TriangulateImage(const IncrementalMapperOptions& options,
-                        const Image& image, IncrementalMapper* mapper) {
-  std::cout << "  => Continued observations: " << image.NumPoints3D()
-            << std::endl;
-  const size_t num_tris =
-      mapper->TriangulateImage(options.Triangulation(), image.ImageId());
+size_t TriangulateImage(const IncrementalMapperOptions& options,  const Image& image, IncrementalMapper* mapper) 
+{
+  std::cout << "  => Continued observations: " << image.NumPoints3D() << std::endl;
+  const size_t num_tris = mapper->TriangulateImage(options.Triangulation(), image.ImageId());
   std::cout << "  => Added observations: " << num_tris << std::endl;
   return num_tris;
 }
 
-void AdjustGlobalBundle(const IncrementalMapperOptions& options,
-                        IncrementalMapper* mapper) 
-{
+void AdjustGlobalBundle(const IncrementalMapperOptions& options, IncrementalMapper* mapper) 
+{ //  Yoni- options are from the Init tab of Colmap
   BundleAdjustmentOptions custom_ba_options = options.GlobalBundleAdjustment();
 
   const size_t num_reg_images = mapper->GetReconstruction().NumRegImages();
 
   // Use stricter convergence criteria for first registered images.
   const size_t kMinNumRegImagesForFastBA = 10;
-  if (num_reg_images < kMinNumRegImagesForFastBA) {
+  if (num_reg_images < kMinNumRegImagesForFastBA) 
+  {
     custom_ba_options.solver_options.function_tolerance /= 10;
     custom_ba_options.solver_options.gradient_tolerance /= 10;
     custom_ba_options.solver_options.parameter_tolerance /= 10;
@@ -64,24 +62,25 @@ void AdjustGlobalBundle(const IncrementalMapperOptions& options,
   }
 
   PrintHeading1("Global bundle adjustment");
-  if (options.ba_global_use_pba && !options.fix_existing_images &&
-      num_reg_images >= kMinNumRegImagesForFastBA &&
-      ParallelBundleAdjuster::IsSupported(custom_ba_options,
-                                          mapper->GetReconstruction())) {
-    mapper->AdjustParallelGlobalBundle(
-        custom_ba_options, options.ParallelGlobalBundleAdjustment());
-  } else {
+  if (options.ba_global_use_pba && !options.fix_existing_images && num_reg_images >= kMinNumRegImagesForFastBA &&
+      ParallelBundleAdjuster::IsSupported(custom_ba_options, mapper->GetReconstruction())) 
+  {
+    mapper->AdjustParallelGlobalBundle(custom_ba_options, options.ParallelGlobalBundleAdjustment());
+  } 
+  else 
+  {
     mapper->AdjustGlobalBundle(options.Mapper(), custom_ba_options);
   }
 }
 
 void IterativeLocalRefinement(const IncrementalMapperOptions& options,
                               const image_t image_id,
-                              IncrementalMapper* mapper) {
+                              IncrementalMapper* mapper) 
+{
   auto ba_options = options.LocalBundleAdjustment();
-  for (int i = 0; i < options.ba_local_max_refinements; ++i) {
-    const auto report = mapper->AdjustLocalBundle(
-        options.Mapper(), ba_options, options.Triangulation(), image_id,
+  for (int i = 0; i < options.ba_local_max_refinements; ++i) 
+  {
+    const auto report = mapper->AdjustLocalBundle(options.Mapper(), ba_options, options.Triangulation(), image_id,
         mapper->GetModifiedPoints3D());
     std::cout << "  => Merged observations: " << report.num_merged_observations
               << std::endl;
@@ -94,30 +93,28 @@ void IterativeLocalRefinement(const IncrementalMapperOptions& options,
             ? 0
             : (report.num_merged_observations +
                report.num_completed_observations +
-               report.num_filtered_observations) /
-                  static_cast<double>(report.num_adjusted_observations);
-    std::cout << StringPrintf("  => Changed observations: %.6f", changed)
-              << std::endl;
-    if (changed < options.ba_local_max_refinement_change) {
+               report.num_filtered_observations) / static_cast<double>(report.num_adjusted_observations);
+    std::cout << StringPrintf("  => Changed observations: %.6f", changed)  << std::endl;
+    if (changed < options.ba_local_max_refinement_change) 
+    {
       break;
     }
     // Only use robust cost function for first iteration.
-    ba_options.loss_function_type =
-        BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+    ba_options.loss_function_type = BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   }
   mapper->ClearModifiedPoints3D();
 }
 
-void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
-                               IncrementalMapper* mapper) {
+void IterativeGlobalRefinement(const IncrementalMapperOptions& options, IncrementalMapper* mapper) 
+{
   PrintHeading1("Retriangulation");
   CompleteAndMergeTracks(options, mapper);
   std::cout << "  => Retriangulated observations: "
             << mapper->Retriangulate(options.Triangulation()) << std::endl;
 
-  for (int i = 0; i < options.ba_global_max_refinements; ++i) {
-    const size_t num_observations =
-        mapper->GetReconstruction().ComputeNumObservations();
+  for (int i = 0; i < options.ba_global_max_refinements; ++i) 
+  {
+    const size_t num_observations = mapper->GetReconstruction().ComputeNumObservations();
     size_t num_changed_observations = 0;
     AdjustGlobalBundle(options, mapper);
     num_changed_observations += CompleteAndMergeTracks(options, mapper);
@@ -128,7 +125,8 @@ void IterativeGlobalRefinement(const IncrementalMapperOptions& options,
             : static_cast<double>(num_changed_observations) / num_observations;
     std::cout << StringPrintf("  => Changed observations: %.6f", changed)
               << std::endl;
-    if (changed < options.ba_global_max_refinement_change) {
+    if (changed < options.ba_global_max_refinement_change) 
+    {
       break;
     }
   }
@@ -165,16 +163,16 @@ void WriteSnapshot(const Reconstruction& reconstruction,
 }  // namespace
 
 size_t FilterPoints(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper) {
-  const size_t num_filtered_observations =
-      mapper->FilterPoints(options.Mapper());
+                    IncrementalMapper* mapper) 
+{
+  const size_t num_filtered_observations =  mapper->FilterPoints(options.Mapper());
   std::cout << "  => Filtered observations: " << num_filtered_observations
             << std::endl;
   return num_filtered_observations;
 }
 
-size_t FilterImages(const IncrementalMapperOptions& options,
-                    IncrementalMapper* mapper) {
+size_t FilterImages(const IncrementalMapperOptions& options, IncrementalMapper* mapper) 
+{
   const size_t num_filtered_images = mapper->FilterImages(options.Mapper());
   std::cout << "  => Filtered images: " << num_filtered_images << std::endl;
   return num_filtered_images;
@@ -206,8 +204,8 @@ IncrementalMapper::Options IncrementalMapperOptions::Mapper() const {
   return options;
 }
 
-IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
-    const {
+IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation() const 
+{
   IncrementalTriangulator::Options options = triangulation;
   options.min_focal_length_ratio = min_focal_length_ratio;
   options.max_focal_length_ratio = max_focal_length_ratio;
@@ -215,8 +213,8 @@ IncrementalTriangulator::Options IncrementalMapperOptions::Triangulation()
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
-    const {
+BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment() const
+{
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_local_function_tolerance;
   options.solver_options.gradient_tolerance = 10.0;
@@ -240,8 +238,8 @@ BundleAdjustmentOptions IncrementalMapperOptions::LocalBundleAdjustment()
   return options;
 }
 
-BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
-    const {
+BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment() const 
+{
   BundleAdjustmentOptions options;
   options.solver_options.function_tolerance = ba_global_function_tolerance;
   options.solver_options.gradient_tolerance = 1.0;
@@ -259,20 +257,19 @@ BundleAdjustmentOptions IncrementalMapperOptions::GlobalBundleAdjustment()
   options.refine_extra_params = ba_refine_extra_params;
   options.min_num_residuals_for_multi_threading =
       ba_min_num_residuals_for_multi_threading;
-  options.loss_function_type =
-      BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
+  options.loss_function_type = BundleAdjustmentOptions::LossFunctionType::TRIVIAL;
   return options;
 }
 
 ParallelBundleAdjuster::Options
-IncrementalMapperOptions::ParallelGlobalBundleAdjustment() const {
+IncrementalMapperOptions::ParallelGlobalBundleAdjustment() const 
+{
   ParallelBundleAdjuster::Options options;
   options.max_num_iterations = ba_global_max_num_iterations;
   options.print_summary = true;
   options.gpu_index = ba_global_pba_gpu_index;
   options.num_threads = num_threads;
-  options.min_num_residuals_for_multi_threading =
-      ba_min_num_residuals_for_multi_threading;
+  options.min_num_residuals_for_multi_threading = ba_min_num_residuals_for_multi_threading;
   return options;
 }
 
@@ -319,7 +316,8 @@ IncrementalMapperController::IncrementalMapperController(
 
 void IncrementalMapperController::Run() 
 {
-  if (!LoadDatabase()) {
+  if (!LoadDatabase())
+  {
     return;
   }
 
@@ -350,7 +348,7 @@ void IncrementalMapperController::Run()
     Reconstruct(init_mapper_options);
   }
 
-  std::cout << std::endl;
+  std::cout << " Finish Yoniiiiiiiiiii"  <<std::endl;
   GetTimer().PrintMinutes();
 }
 
@@ -409,7 +407,7 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
                                                   "single reconstruction, but "
                                                   "multiple are given.";
 
-  for (int num_trials = 0; num_trials < options_->init_num_trials; ++num_trials) 
+  for (int num_trials = 0; num_trials < options_->init_num_trials  ; ++num_trials) 
   {
     std::cout << " Reconstruct. num_trials =  " << num_trials <<std::endl;
     BlockIfPaused();
@@ -484,7 +482,7 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
         break;
       }
 
-      AdjustGlobalBundle(*options_, &mapper);
+      AdjustGlobalBundle(*options_, &mapper);  // Yoni- these options_ are options from the Init tab of Colmap
       FilterPoints(*options_, &mapper);
       FilterImages(*options_, &mapper);
 
@@ -514,8 +512,7 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
       }
     } // end If
 
-    Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK); //Yoni333
-
+    Callback(INITIAL_IMAGE_PAIR_REG_CALLBACK); 
     ////////////////////////////////////////////////////////////////////////////
     // Incremental mapping
     ////////////////////////////////////////////////////////////////////////////
@@ -530,7 +527,8 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
     while (reg_next_success) 
     {
       BlockIfPaused();
-      if (IsStopped()) {
+      if (IsStopped()) 
+      {
         break;
       }
 
@@ -540,7 +538,7 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
 
       if (next_images.empty()) 
       {
-        std::cout << "next_images.empty" << std::endl;
+        std::cout << "next_images.empty" << std::endl; // Yoniii
         break;
       }
 
@@ -552,26 +550,23 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
         PrintHeading1(StringPrintf("Registering image #%d (%d)", next_image_id,
                                    reconstruction.NumRegImages() + 1));
 
+        // NumVisiblePoints3D is the number of observations that see a triangulated point
+        // NumObservations is the number of image points that have at least one correspondence to another image
         std::cout << StringPrintf("  => Image sees %d / %d points",
-                                  next_image.NumVisiblePoints3D(),
-                                  next_image.NumObservations())
-                  << std::endl;
+                                next_image.NumVisiblePoints3D(), next_image.NumObservations()) << std::endl;
 
         reg_next_success = mapper.RegisterNextImage(options_->Mapper(), next_image_id);
 
         if (reg_next_success) 
         {
+           std::cout << "  => reg_next_success is true" << std::endl;
           TriangulateImage(*options_, next_image, &mapper);
           IterativeLocalRefinement(*options_, next_image_id, &mapper);
 
-          if (reconstruction.NumRegImages() >=
-                  options_->ba_global_images_ratio * ba_prev_num_reg_images ||
-              reconstruction.NumRegImages() >=
-                  options_->ba_global_images_freq + ba_prev_num_reg_images ||
-              reconstruction.NumPoints3D() >=
-                  options_->ba_global_points_ratio * ba_prev_num_points ||
-              reconstruction.NumPoints3D() >=
-                  options_->ba_global_points_freq + ba_prev_num_points) 
+          if (reconstruction.NumRegImages() >= options_->ba_global_images_ratio * ba_prev_num_reg_images ||
+              reconstruction.NumRegImages() >= options_->ba_global_images_freq + ba_prev_num_reg_images ||
+              reconstruction.NumPoints3D() >= options_->ba_global_points_ratio * ba_prev_num_points ||
+              reconstruction.NumPoints3D() >= options_->ba_global_points_freq + ba_prev_num_points) 
           {
             IterativeGlobalRefinement(*options_, &mapper);
             ba_prev_num_points = reconstruction.NumPoints3D();
@@ -603,8 +598,7 @@ void IncrementalMapperController::Reconstruct(const IncrementalMapper::Options& 
           // If initial pair fails to continue for some time,
           // abort and try different initial pair.
           const size_t kMinNumInitialRegTrials = 30;
-          if (reg_trial >= kMinNumInitialRegTrials &&
-              reconstruction.NumRegImages() < static_cast<size_t>(options_->min_model_size)) 
+          if (reg_trial >= kMinNumInitialRegTrials && reconstruction.NumRegImages() < static_cast<size_t>(options_->min_model_size)) 
           {
             break;
           }

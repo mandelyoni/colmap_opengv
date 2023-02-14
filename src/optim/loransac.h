@@ -160,7 +160,8 @@ LORANSAC<Estimator, LocalEstimator, SupportMeasurer, Sampler>::Estimate(
           // Recursive local optimization to expand inlier set.
           const size_t kMaxNumLocalTrials = 10;
           for (size_t local_num_trials = 0;
-               local_num_trials < kMaxNumLocalTrials; ++local_num_trials) {
+               local_num_trials < kMaxNumLocalTrials; ++local_num_trials) 
+          {
             X_inlier.clear();
             Y_inlier.clear();
             X_inlier.reserve(num_samples);

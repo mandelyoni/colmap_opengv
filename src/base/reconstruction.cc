@@ -58,12 +58,14 @@ std::unordered_set<point3D_t> Reconstruction::Point3DIds() const {
   return point3D_ids;
 }
 
-void Reconstruction::Load(const DatabaseCache& database_cache) {
+void Reconstruction::Load(const DatabaseCache& database_cache) 
+{
   correspondence_graph_ = nullptr;
 
   // Add cameras.
   cameras_.reserve(database_cache.NumCameras());
-  for (const auto& camera : database_cache.Cameras()) {
+  for (const auto& camera : database_cache.Cameras()) 
+  {
     if (!ExistsCamera(camera.first)) {
       AddCamera(camera.second);
     }

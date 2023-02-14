@@ -111,8 +111,7 @@ void IncrementalMapper::BeginReconstruction(Reconstruction* reconstruction)
   reconstruction_ = reconstruction;
   reconstruction_->Load(*database_cache_);
   reconstruction_->SetUp(&database_cache_->CorrespondenceGraph());
-  triangulator_ = std::make_unique<IncrementalTriangulator>(
-      &database_cache_->CorrespondenceGraph(), reconstruction);
+  triangulator_ = std::make_unique<IncrementalTriangulator>( &database_cache_->CorrespondenceGraph(), reconstruction);
 
   num_shared_reg_images_ = 0;
   num_reg_images_per_camera_.clear();
@@ -228,7 +227,8 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options)
   CHECK(options.Check());
 
   std::function<float(const Image&)> rank_image_func;
-  switch (options.image_selection_method) {
+  switch (options.image_selection_method) 
+  {
     case Options::ImageSelectionMethod::MAX_VISIBLE_POINTS_NUM:
       rank_image_func = RankNextImageMaxVisiblePointsNum;
       break;
@@ -244,30 +244,39 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options)
   std::vector<std::pair<image_t, float>> other_image_ranks;
 
   // Append images that have not failed to register before.
-  for (const auto& image : reconstruction_->Images()) {
+  for (const auto& image : reconstruction_->Images()) 
+  {
     // Skip images that are already registered.
     if (image.second.IsRegistered()) {
+       std::cerr << "IsRegistered0"  << std::endl;
       continue;
     }
 
     // Only consider images with a sufficient number of visible points.
     if (image.second.NumVisiblePoints3D() <
         static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+          std::cerr << "IsRegistered1"  << std::endl;
       continue;
     }
 
     // Only try registration for a certain maximum number of times.
     const size_t num_reg_trials = num_reg_trials_[image.first];
     if (num_reg_trials >= static_cast<size_t>(options.max_reg_trials)) {
+      std::cerr << "IsRegistered2"  << std::endl;
       continue;
     }
 
     // If image has been filtered or failed to register, place it in the
     // second bucket and prefer images that have not been tried before.
     const float rank = rank_image_func(image.second);
-    if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) {
+    if (filtered_images_.count(image.first) == 0 && num_reg_trials == 0) 
+    {
+      std::cerr << "IsRegistered3"  << std::endl;
       image_ranks.emplace_back(image.first, rank);
-    } else {
+    } 
+    else 
+    {
+      std::cerr << "IsRegistered4"  << std::endl;
       other_image_ranks.emplace_back(image.first, rank);
     }
   }
@@ -278,6 +287,7 @@ std::vector<image_t> IncrementalMapper::FindNextImages(const Options& options)
 
   return ranked_images_ids;
 }
+
 
 bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
                                                  const image_t image_id1,
@@ -292,6 +302,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   init_num_reg_trials_[image_id2] += 1;
   num_reg_trials_[image_id1] += 1;
   num_reg_trials_[image_id2] += 1;
+
 
   const image_pair_t pair_id = Database::ImagePairToPairId(image_id1, image_id2); // Yoni123
   init_image_pairs_.insert(pair_id);
@@ -314,14 +325,26 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   }
   std::cerr << "after_EstimateInitialTwoViewGeometry1"  << std::endl;
 
-  image1.Qvec() = ComposeIdentityQuaternion();
-  image1.Tvec() = Eigen::Vector3d(0, 0, 0);
-  image2.Qvec() = InvertQuaternion(prev_init_two_view_geometry_.qvec); // Yoni123
-  Eigen::Matrix3d rot_mat = QuaternionToRotationMatrix(NormalizeQuaternion(prev_init_two_view_geometry_.qvec));
-  Eigen::Vector3d t_vec = prev_init_two_view_geometry_.tvec;
-  std::cout << "initial rot_matrix = " << rot_mat << std::endl;
-  image2.Tvec() = -rot_mat.inverse()*t_vec;
-  std::cout << "initial tvec = " << prev_init_two_view_geometry_.tvec << std::endl;
+  if (options.use_opengv)
+  {
+    image1.Qvec() = ComposeIdentityQuaternion();
+    image1.Tvec() = Eigen::Vector3d(0, 0, 0);
+    image2.Qvec() = InvertQuaternion(prev_init_two_view_geometry_.qvec); // Yoni123
+    Eigen::Matrix3d rot_mat = QuaternionToRotationMatrix(NormalizeQuaternion(prev_init_two_view_geometry_.qvec));
+    Eigen::Vector3d t_vec = prev_init_two_view_geometry_.tvec;
+    std::cout << "initial rot_matrix = " << rot_mat << std::endl;
+    image2.Tvec() = -rot_mat.transpose() *t_vec;
+    std::cout << "initial tvec = " << prev_init_two_view_geometry_.tvec << std::endl;
+  }
+  else
+  {
+    image1.Qvec() = ComposeIdentityQuaternion();
+    image1.Tvec() = Eigen::Vector3d(0, 0, 0);
+    image2.Qvec() = prev_init_two_view_geometry_.qvec; 
+    image2.Tvec() = prev_init_two_view_geometry_.tvec;;
+
+  }
+  
 
   const Eigen::Matrix3x4d proj_matrix1 = image1.ProjectionMatrix(); 
   const Eigen::Matrix3x4d proj_matrix2 = image2.ProjectionMatrix();
@@ -356,7 +379,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
     const Eigen::Vector2d point1_N = camera1.ImageToWorld(image1.Point2D(corr.point2D_idx1).XY());
     const Eigen::Vector2d point2_N = camera2.ImageToWorld(image2.Point2D(corr.point2D_idx2).XY());
 
-    const Eigen::Vector3d& xyz = TriangulatePoint(proj_matrix1, proj_matrix2, point1_N, point2_N);
+    const Eigen::Vector3d& xyz = TriangulatePoint(proj_matrix1, proj_matrix2, point1_N, point2_N); //Yoni  change to opengv???
     const double tri_angle = CalculateTriangulationAngle(proj_center1, proj_center2, xyz);
     if (tri_angle >= min_tri_angle_rad && HasPointPositiveDepth(proj_matrix1, xyz) && HasPointPositiveDepth(proj_matrix2, xyz)) 
     {
@@ -375,6 +398,7 @@ bool IncrementalMapper::RegisterInitialImagePair(const Options& options,
   return true;
 }
 
+
 bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t image_id) 
 {
   CHECK_NOTNULL(reconstruction_);
@@ -392,6 +416,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
   // Check if enough 2D-3D correspondences.
   if (image.NumVisiblePoints3D() < static_cast<size_t>(options.abs_pose_min_num_inliers)) 
   {
+    std::cerr << " NOT enough 2D-3D correspondences" << std::endl;
     return false;
   }
 
@@ -399,6 +424,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
   // Search for 2D-3D correspondences
   //////////////////////////////////////////////////////////////////////////////
 
+   std::cerr << " Search for 2D-3D correspondences" << std::endl;
+  
   const CorrespondenceGraph& correspondence_graph = database_cache_->CorrespondenceGraph();
 
   std::vector<std::pair<point2D_t, point3D_t>> tri_corrs;
@@ -414,17 +441,20 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
     for (const auto& corr : correspondence_graph.FindCorrespondences(image_id, point2D_idx)) 
     {
       const Image& corr_image = reconstruction_->Image(corr.image_id);
-      if (!corr_image.IsRegistered()) {
+      if (!corr_image.IsRegistered()) 
+      {
         continue;
       }
 
       const Point2D& corr_point2D = corr_image.Point2D(corr.point2D_idx);
-      if (!corr_point2D.HasPoint3D()) {
+      if (!corr_point2D.HasPoint3D()) 
+      {
         continue;
       }
 
       // Avoid duplicate correspondences.
-      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) {
+      if (corr_point3D_ids.count(corr_point2D.Point3DId()) > 0) 
+      {
         continue;
       }
 
@@ -435,11 +465,11 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
                                      options.max_focal_length_ratio,
                                      options.max_extra_param)) 
       {
+        std::cerr << "corr_camera.HasBogusParams" <<  std::endl;
         continue;
       }
 
-      const Point3D& point3D =
-          reconstruction_->Point3D(corr_point2D.Point3DId());
+      const Point3D& point3D = reconstruction_->Point3D(corr_point2D.Point3DId());
 
       tri_corrs.emplace_back(point2D_idx, corr_point2D.Point3DId());
       corr_point3D_ids.insert(corr_point2D.Point3DId());
@@ -451,8 +481,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
   // The size of `next_image.num_tri_obs` and `tri_corrs_point2D_idxs.size()`
   // can only differ, when there are images with bogus camera parameters, and
   // hence we skip some of the 2D-3D correspondences.
-  if (tri_points2D.size() <
-      static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+  if (tri_points2D.size() < static_cast<size_t>(options.abs_pose_min_num_inliers)) 
+  {
     return false;
   }
 
@@ -462,9 +492,10 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
 
   // Only refine / estimate focal length, if no focal length was specified
   // (manually or through EXIF) and if it was not already estimated previously
-  // from another image (when multiple images share the same camera
-  // parameters)
+  // from another image (when multiple images share the same camera parameters)
 
+ std::cerr << " 2D-3D estimationnnnnnnnnn" << std::endl;
+  
   AbsolutePoseEstimationOptions abs_pose_options;
   abs_pose_options.num_threads = options.num_threads;
   abs_pose_options.num_focal_length_samples = 30;
@@ -493,6 +524,7 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
       abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
       abs_pose_refinement_options.refine_focal_length = true;
       abs_pose_refinement_options.refine_extra_params = true;
+      std::cerr << " (camera.HasBogusParams 2" << std::endl;
     } 
     else 
     {
@@ -510,6 +542,8 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
     abs_pose_options.estimate_focal_length = !camera.HasPriorFocalLength();
     abs_pose_refinement_options.refine_focal_length = true;
     abs_pose_refinement_options.refine_extra_params = true;
+    std::cerr << " (camera.HasBogusParams 3" << std::endl;
+    
   }
 
   if (!options.abs_pose_refine_focal_length) {
@@ -524,26 +558,38 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
   size_t num_inliers;
   std::vector<char> inlier_mask;
 
+
+
   if (!EstimateAbsolutePose(abs_pose_options, tri_points2D, tri_points3D,
-                            &image.Qvec(), &image.Tvec(), &camera, &num_inliers,
-                            &inlier_mask)) 
+                            &image.Qvec(), &image.Tvec(), &camera, &num_inliers, &inlier_mask, options.use_opengv)) 
   {
     return false;
   }
 
-  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) {
+  if (num_inliers < static_cast<size_t>(options.abs_pose_min_num_inliers)) 
+  {
+    std::cerr << " num_inliers not good" << std::endl;
     return false;
   }
-
+  std::cerr << " num_inliers ok" << std::endl;
   //////////////////////////////////////////////////////////////////////////////
   // Pose refinement
   //////////////////////////////////////////////////////////////////////////////
-
-  if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
-                          tri_points2D, tri_points3D, &image.Qvec(),
-                          &image.Tvec(), &camera)) {
-    return false;
+  // if (options.use_opengv)
+  // {
+  //    int temp = 0;
+  // }
+  // else
+  {
+      if (!RefineAbsolutePose(abs_pose_refinement_options, inlier_mask,
+                            tri_points2D, tri_points3D, &image.Qvec(),
+                            &image.Tvec(), &camera)) 
+    {
+      std::cerr << " False RefineAbsolutePose" << std::endl;
+      return false;
+    }
   }
+  
 
   //////////////////////////////////////////////////////////////////////////////
   // Continue tracks
@@ -551,12 +597,15 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
 
   reconstruction_->RegisterImage(image_id);
   RegisterImageEvent(image_id);
-
-  for (size_t i = 0; i < inlier_mask.size(); ++i) {
-    if (inlier_mask[i]) {
+  
+  for (size_t i = 0; i < inlier_mask.size(); ++i) 
+  {
+    if (inlier_mask[i]) 
+    {
       const point2D_t point2D_idx = tri_corrs[i].first;
       const Point2D& point2D = image.Point2D(point2D_idx);
-      if (!point2D.HasPoint3D()) {
+      if (!point2D.HasPoint3D()) 
+      {
         const point3D_t point3D_id = tri_corrs[i].second;
         const TrackElement track_el(image_id, point2D_idx);
         reconstruction_->AddObservation(point3D_id, track_el);
@@ -568,9 +617,9 @@ bool IncrementalMapper::RegisterNextImage(const Options& options, const image_t 
   return true;
 }
 
+
 size_t IncrementalMapper::TriangulateImage(
-    const IncrementalTriangulator::Options& tri_options,
-    const image_t image_id) 
+    const IncrementalTriangulator::Options& tri_options, const image_t image_id) 
 {
   CHECK_NOTNULL(reconstruction_);
   return triangulator_->TriangulateImage(tri_options, image_id);
@@ -707,8 +756,7 @@ IncrementalMapper::AdjustLocalBundle(
 }
 
 
-bool IncrementalMapper::AdjustGlobalBundle(
-    const Options& options, const BundleAdjustmentOptions& ba_options) 
+bool IncrementalMapper::AdjustGlobalBundle(const Options& options, const BundleAdjustmentOptions& ba_options) 
 {
   CHECK_NOTNULL(reconstruction_);
 
@@ -723,14 +771,18 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Configure bundle adjustment.
   BundleAdjustmentConfig ba_config;
-  for (const image_t image_id : reg_image_ids) {
+  for (const image_t image_id : reg_image_ids) 
+  {
     ba_config.AddImage(image_id);
   }
 
   // Fix the existing images, if option specified.
-  if (options.fix_existing_images) {
-    for (const image_t image_id : reg_image_ids) {
-      if (existing_image_ids_.count(image_id)) {
+  if (options.fix_existing_images) 
+  {
+    for (const image_t image_id : reg_image_ids) 
+    {
+      if (existing_image_ids_.count(image_id)) 
+      {
         ba_config.SetConstantPose(image_id);
       }
     }
@@ -738,14 +790,15 @@ bool IncrementalMapper::AdjustGlobalBundle(
 
   // Fix 7-DOFs of the bundle adjustment problem.
   ba_config.SetConstantPose(reg_image_ids[0]);
-  if (!options.fix_existing_images ||
-      !existing_image_ids_.count(reg_image_ids[1])) {
+  if (!options.fix_existing_images || !existing_image_ids_.count(reg_image_ids[1])) 
+  {
     ba_config.SetConstantTvec(reg_image_ids[1], {0});
   }
 
   // Run bundle adjustment.
   BundleAdjuster bundle_adjuster(ba_options, ba_config);
-  if (!bundle_adjuster.Solve(reconstruction_)) {
+  if (!bundle_adjuster.Solve(reconstruction_)) 
+  {
     return false;
   }
 
@@ -813,11 +866,11 @@ size_t IncrementalMapper::FilterImages(const Options& options) {
   return image_ids.size();
 }
 
-size_t IncrementalMapper::FilterPoints(const Options& options) {
+size_t IncrementalMapper::FilterPoints(const Options& options) 
+{
   CHECK_NOTNULL(reconstruction_);
   CHECK(options.Check());
-  return reconstruction_->FilterAllPoints3D(options.filter_max_reproj_error,
-                                            options.filter_min_tri_angle);
+  return reconstruction_->FilterAllPoints3D(options.filter_max_reproj_error, options.filter_min_tri_angle);
 }
 
 const Reconstruction& IncrementalMapper::GetReconstruction() const {
@@ -1206,8 +1259,8 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   const Image& image2 = database_cache_->Image(image_id2);
   const Camera& camera2 = database_cache_->Camera(image2.CameraId());
 
-  std::cerr << "IncrementalMapper image_id1 - " << image_id1 << std::endl; // Yoni
-  std::cerr << "IncrementalMapper image_id2 - " << image_id2 << std::endl;
+  //std::cerr << "IncrementalMapper image_id1 - " << image_id1 << std::endl; // Yoni
+  //std::cerr << "IncrementalMapper image_id2 - " << image_id2 << std::endl;
 
   const CorrespondenceGraph& correspondence_graph = database_cache_->CorrespondenceGraph();
   const FeatureMatches matches = correspondence_graph.FindCorrespondencesBetweenImages(image_id1, image_id2);
@@ -1231,7 +1284,7 @@ bool IncrementalMapper::EstimateInitialTwoViewGeometry(
   two_view_geometry_options.ransac_options.min_num_trials = 30;
   two_view_geometry_options.ransac_options.max_error = options.init_max_error;
   two_view_geometry_options.use_opengv = options.use_opengv;
-  bool use_opengv_flag = options.use_opengv; // Yoni
+  bool use_opengv_flag = options.use_opengv;
   opengv::sac::Ransac<opengv::sac_problems::relative_pose::CentralRelativePoseSacProblem> ransac;
 
   two_view_geometry.EstimateCalibrated(camera1, points1, camera2, points2, matches, two_view_geometry_options, ransac);

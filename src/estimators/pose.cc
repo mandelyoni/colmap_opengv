@@ -29,6 +29,8 @@
 //
 // Author: Johannes L. Schoenberger (jsch-at-demuc-dot-de)
 
+
+#include "estimators/two_view_geometry.h"
 #include "estimators/pose.h"
 
 #include "base/camera_models.h"
@@ -40,7 +42,9 @@
 #include "optim/bundle_adjustment.h"
 #include "util/matrix.h"
 #include "util/misc.h"
+
 #include "util/threading.h"
+
 
 namespace colmap {
 namespace {
@@ -71,92 +75,200 @@ void EstimateAbsolutePoseKernel(const Camera& camera,
 
   // Estimate pose for given focal length.
   auto custom_options = options;
-  custom_options.max_error =
-      scaled_camera.ImageToWorldThreshold(options.max_error);
+  custom_options.max_error = scaled_camera.ImageToWorldThreshold(options.max_error); 
   AbsolutePoseRANSAC ransac(custom_options);
   *report = ransac.Estimate(points2D_N, points3D);
 }
 
 }  // namespace
 
+
+
 bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
                           const std::vector<Eigen::Vector2d>& points2D,
                           const std::vector<Eigen::Vector3d>& points3D,
                           Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
                           Camera* camera, size_t* num_inliers,
-                          std::vector<char>* inlier_mask) 
+                          std::vector<char>* inlier_mask,
+                          bool use_opengv) 
 {
+  
   options.Check();
 
-  std::vector<double> focal_length_factors;
-  if (options.estimate_focal_length) 
-  {
-    // Generate focal length factors using a quadratic function,
-    // such that more samples are drawn for small focal lengths
-    focal_length_factors.reserve(options.num_focal_length_samples + 1);
-    const double fstep = 1.0 / options.num_focal_length_samples;
-    const double fscale =
-        options.max_focal_length_ratio - options.min_focal_length_ratio;
-    for (double f = 0; f <= 1.0; f += fstep) {
-      focal_length_factors.push_back(options.min_focal_length_ratio +
-                                     fscale * f * f);
-    }
-  } 
-  else 
-  {
-    focal_length_factors.reserve(1);
-    focal_length_factors.push_back(1);
-  }
+  /*
+  abs_pose_options.ransac_options.min_num_trials = 100;
+  abs_pose_options.ransac_options.max_num_trials = 10000;
+  abs_pose_options.ransac_options.confidence = 0.99999;
+  */
 
-  std::vector<std::future<void>> futures;
-  futures.resize(focal_length_factors.size());
-  std::vector<typename AbsolutePoseRANSAC::Report,
-              Eigen::aligned_allocator<typename AbsolutePoseRANSAC::Report>>  reports;
-  reports.resize(focal_length_factors.size());
-
-  ThreadPool thread_pool(std::min(
-      options.num_threads, static_cast<int>(focal_length_factors.size())));
-
-  for (size_t i = 0; i < focal_length_factors.size(); ++i) 
-  {
-    futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel, *camera, focal_length_factors[i], points2D,
-        points3D, options.ransac_options, &reports[i]);
-  }
-
-  double focal_length_factor = 0;
   Eigen::Matrix3x4d proj_matrix;
   *num_inliers = 0;
-  inlier_mask->clear();
 
-  // Find best model among all focal lengths.
-  for (size_t i = 0; i < focal_length_factors.size(); ++i) 
+  if (use_opengv)
   {
-    futures[i].get();
-    const auto report = reports[i];
-    if (report.success && report.support.num_inliers > *num_inliers) 
-    {
-      *num_inliers = report.support.num_inliers;
-      proj_matrix = report.model;
-      *inlier_mask = report.inlier_mask;
-      focal_length_factor = focal_length_factors[i];
+    std::cout <<  "use_opengv  in  EstimateAbsolutePose"  << std::endl;
+    opengv::points_t  points3D_opengv;   
+    Eigen::Vector2d p_u;
+    Eigen::Vector3d P1;
+    double theta, phi;
+    opengv::bearingVectors_t  bearingVectors1;
+
+    for (size_t i = 0; i < points2D.size(); ++i) 
+    {  
+      p_u = camera->ImageToWorld(points2D[i]);   
+      theta = atan2(p_u.norm(), 1);
+      if (theta < 1e-10)
+      {
+          phi = 0.0;
+      }
+      else
+      {
+          phi = atan2(p_u(1), p_u(0));
+      }
+      P1[0] = sin(theta) * cos(phi);
+      P1[1] = sin(theta) * sin(phi);
+      P1[2] = cos(theta);
+      bearingVectors1.push_back(P1);
+      bearingVectors1[i] = bearingVectors1[i] / bearingVectors1[i].norm(); 
     }
-  }
 
-  if (*num_inliers == 0) {
-    return false;
-  }
+    for (size_t i = 0; i < points3D.size(); ++i) 
+    {
+      points3D_opengv.push_back(points3D[i]);
+    }
 
-  // Scale output camera with best estimated focal length.
-  if (options.estimate_focal_length && *num_inliers > 0) {
-    const std::vector<size_t>& focal_length_idxs = camera->FocalLengthIdxs();
-    for (const size_t idx : focal_length_idxs) {
-      camera->Params(idx) *= focal_length_factor;
+
+    //create a central absolute adapter
+    opengv::absolute_pose::CentralAbsoluteAdapter adapter(
+        bearingVectors1,
+        points3D_opengv);
+
+    //Create an AbsolutePoseSac problem and Ransac
+    //The method can be set to KNEIP, GAO or EPNP
+    opengv::sac::Ransac<opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem> ransac;
+    std::shared_ptr<
+        opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem> absposeproblem_ptr(
+        new opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem(
+        adapter,
+        opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem::EPNP));
+    ransac.sac_model_ = absposeproblem_ptr;
+    ransac.threshold_ = 2.0 - cos(atan(sqrt(2.0)*0.5/800.0));
+    ransac.max_iterations_ = 100000;
+    //ransac.iterations_
+    std::cout <<  "computeModel use_opengv  in  EstimateAbsolutePose"  << std::endl;
+    ransac.computeModel();
+    //Eigen::Matrix3x4d proj_mat = ransac.model_coefficients_;
+
+    std::vector<char> maskk(points2D.size());
+    for (size_t i = 0; i < points2D.size(); ++i)
+    {
+      maskk[i] = false;
+    }
+    size_t inliers_size = ransac.inliers_.size();
+    for (size_t i = 0; i < inliers_size; ++i)
+    {
+      maskk[ransac.inliers_[i]] = true;
+    }
+
+    *num_inliers = ransac.inliers_.size();
+    std::cout << "num_inliers EstimateAbsolutePose opengv = " << *num_inliers << std::endl;
+    proj_matrix = ransac.model_coefficients_;
+    inlier_mask->clear();
+    *inlier_mask = maskk;
+
+    Eigen::Matrix3d rot_mat = proj_matrix.leftCols<3>();
+    rot_mat = rot_mat.transpose();
+    *tvec = -1*rot_mat*proj_matrix.rightCols<1>();
+    *qvec = RotationMatrixToQuaternion(rot_mat);
+
+    
+    if (*num_inliers == 0) 
+    {
+      std::cout << "num_inliers==0 " << std::endl;
+      return false;
+    }
+
+  }
+  else
+  {
+    std::vector<double> focal_length_factors;
+    if (options.estimate_focal_length) 
+    {
+      // Generate focal length factors using a quadratic function,
+      // such that more samples are drawn for small focal lengths
+      focal_length_factors.reserve(options.num_focal_length_samples + 1);
+      const double fstep = 1.0 / options.num_focal_length_samples;
+      const double fscale =
+          options.max_focal_length_ratio - options.min_focal_length_ratio;
+      for (double f = 0; f <= 1.0; f += fstep) {
+        focal_length_factors.push_back(options.min_focal_length_ratio + fscale * f * f);
+      }
+    } 
+    else 
+    {
+      focal_length_factors.reserve(1);
+      focal_length_factors.push_back(1);
+    }
+
+    std::vector<std::future<void>> futures;
+    futures.resize(focal_length_factors.size());
+    std::vector<typename AbsolutePoseRANSAC::Report,
+                Eigen::aligned_allocator<typename AbsolutePoseRANSAC::Report>>  reports;
+    reports.resize(focal_length_factors.size());
+
+    ThreadPool thread_pool(std::min(options.num_threads, static_cast<int>(focal_length_factors.size())));
+
+    for (size_t i = 0; i < focal_length_factors.size(); ++i) 
+    {
+      futures[i] = thread_pool.AddTask(EstimateAbsolutePoseKernel, *camera, focal_length_factors[i], points2D,
+          points3D, options.ransac_options, &reports[i]);
+    }
+
+//why can't we see 3d points in the gui???
+
+    double focal_length_factor = 0;
+    // Eigen::Matrix3x4d proj_matrix;
+    // *num_inliers = 0;
+    inlier_mask->clear();
+
+    // Find best model among all focal lengths.
+    for (size_t i = 0; i < focal_length_factors.size(); ++i) 
+    {
+      futures[i].get();
+      const auto report = reports[i];
+      if (report.success && report.support.num_inliers > *num_inliers) 
+      {
+        *num_inliers = report.support.num_inliers;
+        proj_matrix = report.model;
+        *inlier_mask = report.inlier_mask;
+        focal_length_factor = focal_length_factors[i];
+      }
+    }
+
+    if (*num_inliers == 0) 
+    {
+      std::cout << "num_inliers == 0 333 " << *num_inliers << std::endl;
+      return false;
+    }
+
+    // Scale output camera with best estimated focal length.
+    if (options.estimate_focal_length && *num_inliers > 0) 
+    {
+      const std::vector<size_t>& focal_length_idxs = camera->FocalLengthIdxs();
+      for (const size_t idx : focal_length_idxs) 
+      {
+        camera->Params(idx) *= focal_length_factor;
+      }
     }
   }
 
   // Extract pose parameters.
-  *qvec = RotationMatrixToQuaternion(proj_matrix.leftCols<3>());
-  *tvec = proj_matrix.rightCols<1>();
+  if (!use_opengv)
+  {
+     *qvec = RotationMatrixToQuaternion(proj_matrix.leftCols<3>());
+     *tvec = proj_matrix.rightCols<1>();
+  }
+ 
 
   if (IsNaN(*qvec) || IsNaN(*tvec)) {
     return false;
@@ -208,13 +320,13 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
                         const std::vector<Eigen::Vector2d>& points2D,
                         const std::vector<Eigen::Vector3d>& points3D,
                         Eigen::Vector4d* qvec, Eigen::Vector3d* tvec,
-                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance) {
+                        Camera* camera, Eigen::Matrix6d* rot_tvec_covariance) 
+{
   CHECK_EQ(inlier_mask.size(), points2D.size());
   CHECK_EQ(points2D.size(), points3D.size());
   options.Check();
 
-  ceres::LossFunction* loss_function =
-      new ceres::CauchyLoss(options.loss_function_scale);
+  ceres::LossFunction* loss_function = new ceres::CauchyLoss(options.loss_function_scale);
 
   double* camera_params_data = camera->ParamsData();
   double* qvec_data = qvec->data();
@@ -224,9 +336,11 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
 
   ceres::Problem problem;
 
-  for (size_t i = 0; i < points2D.size(); ++i) {
+  for (size_t i = 0; i < points2D.size(); ++i) 
+  {
     // Skip outlier observations
-    if (!inlier_mask[i]) {
+    if (!inlier_mask[i]) 
+    {
       continue;
     }
 
@@ -249,13 +363,17 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     problem.SetParameterBlockConstant(points3D_copy[i].data());
   }
 
-  if (problem.NumResiduals() > 0) {
+  if (problem.NumResiduals() > 0) 
+  {
     SetQuaternionManifold(&problem, qvec_data);
 
     // Camera parameterization.
-    if (!options.refine_focal_length && !options.refine_extra_params) {
+    if (!options.refine_focal_length && !options.refine_extra_params) 
+    {
       problem.SetParameterBlockConstant(camera->ParamsData());
-    } else {
+    } 
+    else 
+    {
       // Always set the principal point as fixed.
       std::vector<int> camera_params_const;
       const std::vector<size_t>& principal_point_idxs =
@@ -307,12 +425,14 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     std::cout << std::endl;
   }
 
-  if (options.print_summary) {
+  if (options.print_summary) 
+  {
     PrintHeading2("Pose refinement report");
     PrintSolverSummary(summary);
   }
 
-  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) {
+  if (problem.NumResiduals() > 0 && rot_tvec_covariance != nullptr) 
+  {
     ceres::Covariance::Options options;
     ceres::Covariance covariance(options);
     std::vector<const double*> parameter_blocks = {qvec_data, tvec_data};
@@ -322,17 +442,18 @@ bool RefineAbsolutePose(const AbsolutePoseRefinementOptions& options,
     // The rotation covariance is estimated in the tangent space of the
     // quaternion, which corresponds to the 3-DoF axis-angle local
     // parameterization.
-    covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks,
-                                                 rot_tvec_covariance->data());
+    covariance.GetCovarianceMatrixInTangentSpace(parameter_blocks, rot_tvec_covariance->data());
   }
 
   return summary.IsSolutionUsable();
 }
 
+
 bool RefineRelativePose(const ceres::Solver::Options& options,
                         const std::vector<Eigen::Vector2d>& points1,
                         const std::vector<Eigen::Vector2d>& points2,
-                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) {
+                        Eigen::Vector4d* qvec, Eigen::Vector3d* tvec) 
+{
   CHECK_EQ(points1.size(), points2.size());
 
   // CostFunction assumes unit quaternions.
