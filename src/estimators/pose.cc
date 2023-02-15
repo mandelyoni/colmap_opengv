@@ -152,7 +152,9 @@ bool EstimateAbsolutePose(const AbsolutePoseEstimationOptions& options,
         adapter,
         opengv::sac_problems::absolute_pose::AbsolutePoseSacProblem::EPNP));
     ransac.sac_model_ = absposeproblem_ptr;
-    ransac.threshold_ = 2.0 - cos(atan(sqrt(2.0)*0.5/800.0));
+    //ransac.threshold_ = 2.0 - cos(atan(sqrt(2.0)*0.5/800.0));
+    ransac.threshold_ = 2.0*(1.0 - cos(atan(sqrt(2.0)*0.5/800.0))) * options.ransac_options.max_error; // Yoni
+    
     ransac.max_iterations_ = 100000;
     //ransac.iterations_
     std::cout <<  "computeModel use_opengv  in  EstimateAbsolutePose"  << std::endl;
